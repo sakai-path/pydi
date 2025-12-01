@@ -1,0 +1,11 @@
+# PyDI Demo Dependencies
+
+# Streamlit Demo
+streamlit>=1.28.0
+
+# FastAPI Example
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# Core (標準ライブラリのみなので追加不要だが明示)
+# typing-extensions>=4.0.0  # Python 3.10未満の場合
