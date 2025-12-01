@@ -134,33 +134,32 @@ class DependencyGraph:
                     ))
         return warnings
     
-    def to_mermaid(self) -> str:
-        """Mermaid形式でグラフを出力"""
-        lines = ["graph TD"]
-        lifetime_styles = {
-            Lifetime.SINGLETON: "fill:#e1f5fe,stroke:#01579b",
-            Lifetime.SCOPED: "fill:#fff3e0,stroke:#e65100",
-            Lifetime.TRANSIENT: "fill:#f3e5f5,stroke:#7b1fa2"
+    def to_graphviz(self) -> str:
+        """Graphviz DOT形式でグラフを出力"""
+        lines = ["digraph DependencyGraph {"]
+        lines.append("    rankdir=TB;")
+        lines.append("    node [shape=box, style=filled, fontname=Arial];")
+        
+        lifetime_colors = {
+            Lifetime.SINGLETON: "#e1f5fe",
+            Lifetime.SCOPED: "#fff3e0",
+            Lifetime.TRANSIENT: "#f3e5f5"
         }
         
-        node_ids = {}
-        for i, node in enumerate(self._edges.keys()):
-            node_ids[node] = f"N{i}"
+        # ノード定義
+        for node in self._edges.keys():
             lifetime = self._lifetimes.get(node, Lifetime.TRANSIENT)
-            label = f"{node.__name__}<br/>({lifetime.name})"
-            lines.append(f'    {node_ids[node]}["{label}"]')
+            color = lifetime_colors.get(lifetime, "#ffffff")
+            label = f"{node.__name__}\\n({lifetime.name})"
+            lines.append(f'    "{node.__name__}" [label="{label}", fillcolor="{color}"];')
         
+        # エッジ定義
         for service, deps in self._edges.items():
             for dep in deps:
-                if dep in node_ids:
-                    lines.append(f"    {node_ids[service]} --> {node_ids[dep]}")
+                if dep in self._edges or dep in self._lifetimes:
+                    lines.append(f'    "{service.__name__}" -> "{dep.__name__}";')
         
-        # スタイル適用
-        for node, node_id in node_ids.items():
-            lifetime = self._lifetimes.get(node, Lifetime.TRANSIENT)
-            style = lifetime_styles.get(lifetime, "")
-            lines.append(f"    style {node_id} {style}")
-        
+        lines.append("}")
         return "\n".join(lines)
 
 
@@ -351,15 +350,10 @@ with tab1:
     
     with col1:
         st.subheader("依存関係グラフ")
-        mermaid_code = graph.to_mermaid()
-        st.code(mermaid_code, language="mermaid")
+        graphviz_code = graph.to_graphviz()
         
-        # Mermaidレンダリング
-        st.markdown(f"""
-```mermaid
-{mermaid_code}
-```
-        """)
+        # Graphvizでレンダリング
+        st.graphviz_chart(graphviz_code)
     
     with col2:
         st.subheader("凡例")
@@ -427,18 +421,17 @@ class ServiceC:
                 st.error(f"🚨 循環依存を検出しました！")
                 st.markdown(f"**検出されたサイクル:** {' → '.join(t.__name__ for t in cycle)}")
                 
-                # 循環のMermaid表示
-                st.markdown(f"""
-```mermaid
-graph LR
-    ServiceA --> ServiceB
-    ServiceB --> ServiceC
-    ServiceC -->|循環!| ServiceA
-    style ServiceA fill:#ffcdd2
-    style ServiceB fill:#ffcdd2
-    style ServiceC fill:#ffcdd2
-```
-                """)
+                # 循環のGraphviz表示
+                cycle_graph = """
+digraph Cycle {
+    rankdir=LR;
+    node [shape=box, style=filled, fillcolor="#ffcdd2", fontname=Arial];
+    ServiceA -> ServiceB;
+    ServiceB -> ServiceC;
+    ServiceC -> ServiceA [color=red, penwidth=2, label="循環!"];
+}
+"""
+                st.graphviz_chart(cycle_graph)
     
     with col2:
         st.subheader("✅ 循環依存なし")
@@ -475,16 +468,15 @@ class Service:
             
             if cycle is None:
                 st.success("✅ 循環依存はありません！")
-                st.markdown(f"""
-```mermaid
-graph TD
-    Service2 --> Repository2
-    Repository2 --> Logger2
-    style Service2 fill:#c8e6c9
-    style Repository2 fill:#c8e6c9
-    style Logger2 fill:#c8e6c9
-```
-                """)
+                good_graph = """
+digraph Good {
+    rankdir=TD;
+    node [shape=box, style=filled, fillcolor="#c8e6c9", fontname=Arial];
+    Service2 -> Repository2;
+    Repository2 -> Logger2;
+}
+"""
+                st.graphviz_chart(good_graph)
 
 # =============================================================================
 # Tab 3: ライフタイム比較
@@ -670,8 +662,8 @@ with tab4:
         
         # グラフ表示
         st.subheader("依存関係グラフ")
-        mermaid = graph.to_mermaid()
-        st.code(mermaid, language="mermaid")
+        graphviz = graph.to_graphviz()
+        st.graphviz_chart(graphviz)
 
 # フッター
 st.markdown("---")
